@@ -1,0 +1,92 @@
+const model=require("../models/model");
+
+//post:http://localhost:8080/api/categories
+async function create_Categories(req,res){
+    const Create=new model.Categories({
+        type: "doposit",
+        color: "#FF0000"
+    })
+   await Create.save(function(err){
+        if(!err)return res.json(Create);
+
+        return res.status(400).json({message: `Error while creating categories ${err}`})
+
+    });
+}
+
+//get: http://localhost:8080/api/categories
+async function get_Categories(req,res){
+    let data=await model.Categories.find({});
+    return res.json(data);
+} 
+
+//post:http://localhost:8080/api/transaction
+async function create_Transaction(req,res){
+    if(!req.body)return res.status(400).json("Post HTTP Data not provided");
+
+    let {name,type,amount}=req.body;
+
+    const create=await new model.Transaction({
+       // name: name
+       name,
+       type,
+       amount,
+       date: new Date()
+    })
+    create.save((err)=>
+    {
+        if(!err)return res.json(create);
+        return res.status(400).json({
+            message:`Error while creating transaction ${err}`
+        });
+    })
+}
+
+//get:http://localhost:8080/api/transaction
+async function get_Transaction(req,res){
+ let data=await model.Transaction.find({});
+ return res.json (data);
+}
+
+//delete:http://localhost:8080/api/transaction
+async function delete_Transaction(req,res){
+    if(!req.body)res.status(400).json({message:"Request body not found"});
+    await model.Transaction.deleteOne(req.body,function(err){
+        if(!err)res.json("Record Deleted....!");
+    }).clone().catch(function (err){
+        res.json("error while deleting Transaction Record")
+    })
+}
+
+//get :http://localhost:8080/api/labels
+async function get_Labels(req, res){
+
+    model.Transaction.aggregate([
+        {
+            $lookup : {
+                from: "Categories",
+                localField: 'type',
+                foreignField: "type",
+                as: "categories_info"
+            }
+        },
+        {
+            $unwind: "$categories_info"
+        }
+    ]).then(result => {
+        let data = result.map(v => Object.assign({}, { _id: v._id, name: v.name, type: v.type, amount: v.amount, color: v.categories_info['color']}));
+        res.json(data);
+    }).catch(error => {
+        res.status(400).json("Lookup Collection Error");
+    })
+
+}
+module.exports= 
+{
+    create_Categories,
+    get_Categories,
+    create_Transaction,
+    get_Transaction,
+    delete_Transaction,
+    get_Labels
+}
